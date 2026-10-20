@@ -1,18 +1,18 @@
 const express = require('express');
 const pg = require('pg');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 const { Pool } = pg;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const pool = new Pool({
-    user: 'postgres',
-    host: 'localhost',
-    database: 'mahasiswa',
-    password: '12345', // sesuaikan dengan password database masing-masing
-    port: 5432,
+    user: process.env.DB_USER || 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    database: process.env.DB_NAME || 'mahasiswa',
+    password: process.env.DB_PASSWORD || '12345', // sesuaikan dengan password database masing-masing
+    port: process.env.DB_PORT || 5432,
 });
 
 // Middleware untuk error handling
@@ -22,6 +22,31 @@ app.use((err, req, res, next) => {
         error: 'Something went wrong!'
     });
 });
+
+// Middleware untuk validasi input
+const validateBiodata = (req, res, next) => {
+    const { nama, nim, kelas } = req.body;
+    
+    if (!nama || !nim || !kelas) {
+        return res.status(400).json({
+            error: 'nama, nim, dan kelas wajib diisi'
+        });
+    }
+    
+    if (typeof nama !== 'string' || nama.trim().length === 0) {
+        return res.status(400).json({
+            error: 'nama tidak valid'
+        });
+    }
+    
+    if (typeof nim !== 'string' || !/^\d+$/.test(nim)) {
+        return res.status(400).json({
+            error: 'nim harus berupa angka'
+        });
+    }
+    
+    next();
+};
 
 // GET ALL
 app.get('/', (req, res) => {
@@ -38,14 +63,8 @@ app.get('/', (req, res) => {
 });
 
 // POST (Tambah Data)
-app.post('/biodata', (req, res) => {
+app.post('/biodata', validateBiodata, (req, res) => {
     const { id, nama, nim, kelas } = req.body;
-
-    if (!nama || !nim || !kelas) {
-        return res.status(400).json({
-            error: 'nama, nim, dan kelas wajib diisi'
-        });
-    }
 
     pool.query(
         'INSERT INTO biodata (id, nama, nim, kelas) VALUES ($1,$2,$3,$4) RETURNING *',
@@ -61,7 +80,7 @@ app.post('/biodata', (req, res) => {
 });
 
 // PUT (Update Data)
-app.put('/biodata/:id', (req, res) => {
+app.put('/biodata/:id', validateBiodata, (req, res) => {
     const { id } = req.params;
     const { nama, nim, kelas } = req.body;
 

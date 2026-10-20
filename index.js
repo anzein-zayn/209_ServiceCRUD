@@ -15,8 +15,12 @@ const pool = new Pool({
     port: 5432,
 });
 
-app.listen(port, () => {
-    console.log(`App running on port ${port}.`);
+// Middleware untuk error handling
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({
+        error: 'Something went wrong!'
+    });
 });
 
 // GET ALL
@@ -37,12 +41,23 @@ app.get('/', (req, res) => {
 app.post('/biodata', (req, res) => {
     const { id, nama, nim, kelas } = req.body;
 
+    if (!nama || !nim || !kelas) {
+        return res.status(400).json({
+            error: 'nama, nim, dan kelas wajib diisi'
+        });
+    }
+
     pool.query(
         'INSERT INTO biodata (id, nama, nim, kelas) VALUES ($1,$2,$3,$4) RETURNING *',
         [id, nama, nim, kelas]
     )
         .then(result => res.json(result.rows[0]))
-        .catch(err => console.error(err));
+        .catch(err => {
+            console.error(err);
+            res.status(500).json({
+                error: 'Gagal menambahkan data'
+            });
+        });
 });
 
 // PUT (Update Data)
@@ -96,4 +111,8 @@ app.delete('/biodata/:id', (req, res) => {
             console.error(err);
             res.status(500).send('Internal Server Error');
         });
+});
+
+app.listen(port, () => {
+    console.log(`App running on port ${port}.`);
 });
